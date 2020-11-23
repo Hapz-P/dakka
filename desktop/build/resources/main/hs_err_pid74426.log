@@ -1,0 +1,21 @@
+#
+# A fatal error has been detected by the Java Runtime Environment:
+#
+#  SIGSEGV (0xb) at pc=0x00007fedf5b88131, pid=74426, tid=74441
+#
+# JRE version: OpenJDK Runtime Environment Corretto-11.0.9.11.1 (11.0.9+11) (build 11.0.9+11-LTS)
+# Java VM: OpenJDK 64-Bit Server VM Corretto-11.0.9.11.1 (11.0.9+11-LTS, mixed mode, tiered, compressed oops, g1 gc, linux-amd64)
+# Problematic frame:
+# C  [libjimage.so+0x4131]  ImageStrings::find(Endian*, char const*, int*, unsigned int)+0x71
+#
+# Core dump will be written. Default location: Core dumps may be processed with "/usr/share/apport/apport %p %s %c %d %P %E" (or dumping to /home/baird/test/core/assets/core.74426)
+#
+# If you would like to submit a bug report, please visit:
+#   https://bugreport.java.com/bugreport/crash.jsp
+#
+
+---------------  S U M M A R Y ------------
+
+Command Line: -agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=46235 -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant com.mygdx.game.desktop.DesktopLauncher
+
+Host: Intel(R) Core(TM) i3 CPU       M 380  @ 2.53GHz, 4 cores, 3G, 
