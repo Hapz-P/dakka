@@ -4,12 +4,16 @@ import com.badlogic.gdx.*;
 import com.badlogic.gdx.assets.AssetManager;
 import com.badlogic.gdx.assets.loaders.ModelLoader;
 import com.badlogic.gdx.graphics.*;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.loader.ObjLoader;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
+import com.badlogic.gdx.graphics.g3d.utils.DefaultShaderProvider;
+import com.badlogic.gdx.graphics.g3d.utils.DepthShaderProvider;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.graphics.g3d.*;
@@ -24,6 +28,7 @@ import com.badlogic.gdx.*;
 import com.sun.tools.javac.comp.Todo;
 import net.mgsx.gltf.loaders.gltf.GLTFLoader;
 import net.mgsx.gltf.scene3d.scene.SceneAsset;
+import net.mgsx.gltf.scene3d.scene.SceneManager;
 
 import java.awt.event.MouseEvent;
 
@@ -31,6 +36,7 @@ public class MyGdxGame extends ApplicationAdapter {
 	public Model arena_model;
 	public ModelInstance arena;
 	public ModelBatch modelBatch;
+	public SpriteBatch spriteBatch;
 	public Environment environment;
 	public FirstPersonCameraController camController;
 	public float delta;
@@ -39,6 +45,34 @@ public class MyGdxGame extends ApplicationAdapter {
 	public ModelInstance bulletdraw;
 	public float width;
 	public float height;
+	public BitmapFont font;
+	Model handmodel;
+	ModelInstance hand;
+	public class HapzCamera extends PerspectiveCamera {
+		public Vector3 right;
+
+		final Vector3 tmp = new Vector3();
+		public HapzCamera (float fieldOfViewY, float viewportWidth, float viewportHeight) {
+			this.fieldOfView = fieldOfViewY;
+			this.viewportWidth = viewportWidth;
+			this.viewportHeight = viewportHeight;
+			this.right = new Vector3();
+			update();
+		}
+		@Override
+		public void update () {
+			super.update();
+			right.set((this.direction).cpy().crs(this.up).nor());
+		}
+
+		@Override
+		public void update (boolean updateFrustum) {
+			super.update(updateFrustum);
+			/** Hapz Additions below **/
+			right.set((this.direction).cpy().crs(this.up).nor());
+		}
+	}
+
 	public class FirstPersonCameraController extends InputAdapter {
 		// TODO: replace direction with function
 		private final Camera camera;
@@ -85,6 +119,14 @@ public class MyGdxGame extends ApplicationAdapter {
 
 		@Override
 		public boolean mouseMoved (int screenX, int screenY) {
+
+
+// camera.up.rotate(tmp, deltaY);
+			return true;
+		}
+
+		public void update (float deltaTime) {
+
 			float deltaX = -Gdx.input.getDeltaX() * degreesPerPixel;
 			float deltaY = -Gdx.input.getDeltaY() * degreesPerPixel;
 			camera.direction.rotate(camera.up, deltaX).nor();
@@ -94,16 +136,6 @@ public class MyGdxGame extends ApplicationAdapter {
 				camera.direction.rotate(tmp, deltaY);
 			}
 
-
-// camera.up.rotate(tmp, deltaY);
-			return true;
-		}
-
-		public void update () {
-			update(Gdx.graphics.getDeltaTime());
-		}
-
-		public void update (float deltaTime) {
 			if (keys.containsKey(FORWARD)) {
 				tmp.set(camera.direction).nor().scl(deltaTime * velocity);
 				camera.position.add(tmp);
@@ -136,44 +168,71 @@ public class MyGdxGame extends ApplicationAdapter {
 
 	public class Character {
 		//Cam defines pos, dir, & other movement related vectors
-		PerspectiveCamera view;
+		HapzCamera view;
 		//controller defines movement, speed, and... controls
 		FirstPersonCameraController controller;
 		float fireTimer = 0f; // timer for ROF
 		float ROF = 70F; //how long till next bullet
-		float fireSpeed = 15f; //speed in bullets per second (maybe)
-		float aimSpeed = 15f;
+		float aimSpeed = 15f; //speed in the direction of firing
 		float spread = 15f; //radius speed
-		/** TODO: rate of fire, dmg, hp, etc
+		float hitSize = 0.5f; // size of hitbox
+		float health = 5f;
+		float atkHor = 4.5f;
+		float atkFor = 6f;
+
+		/* TODO:dmg, hp, etc
 		 TODO: add models, textures, music, etc
 		 TODO: S T O R Y L I N E
-		 TODO: velocity, friction, knockback resistance
+		 TODO: knockback resistance
 		 TODO: animation.
 		 TODO: ACTUAL CHARACTERS!!! */
+	}
+
+	public class Monster extends Character {
+
+	}
+
+	void spiral(Character owner,float x,float y,float z){
+		// TODO: fix bullet spaghetti
+		Bullet newbul = new Bullet();
+		bullets.add(newbul);
+		//set players
+		newbul.owner = owner;
+		//set position
+		newbul.pos.set(owner.view.position).mulAdd(owner.view.direction,z).mulAdd(owner.view.right,x).mulAdd(owner.view.up,y);
+		//apply wiggly vel dir
+		newbul.vel.set(owner.view.direction).scl(owner.aimSpeed).mulAdd(owner.view.up,owner.spread*MathUtils.sin(timer)).mulAdd(owner.view.right,owner.spread*MathUtils.cos(timer));
+		//sped = bullets.get(bullets.size-1).vel.set(player.view.direction).scl(sped).add(vert).add(hor).scl(delta).scl(player.ROF).len();
+		//set time until next bullet
+		owner.fireTimer = owner.ROF*delta;
 	}
 
 	public static class Bullet {
 		Vector3 pos = new Vector3(0,0,0);
 		Vector3 vel = new Vector3(0,0,0);
-
+		Character owner;
 	}
 	final Array<Bullet> bullets = new Array<Bullet>();
 	
 	Character player = new Character();
 	float timer = 0f;
 	@Override public void create() {
+		//font
+		font = new BitmapFont();
 		//basic vars & setup
-		float width = Gdx.graphics.getWidth();
-		float height = Gdx.graphics.getHeight();
+		width = Gdx.graphics.getWidth();
+		height = Gdx.graphics.getHeight();
 		Gdx.input.setCursorCatched(true);
 		Gdx.input.setCursorPosition(Gdx.graphics.getWidth() / 2, Gdx.graphics.getHeight() / 2);
-		final float sensM = 6.2918f;
+		final float sensM = 6.2918f/2;
 		//universal bullet model & instant
 		bulletmodel = loader.loadModel(Gdx.files.internal("3d/basic_bullet/model.obj"));
 		bulletdraw = new ModelInstance(bulletmodel);
 		//chars have cams and controllers to simplify player & controls
 		//"view" is char cams
-		player.view = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+		handmodel = loader.loadModel(Gdx.files.internal("3d/player/mitten.obj"));
+		hand = new ModelInstance(handmodel);
+		player.view = new HapzCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 		player.view.position.set(0,0,0);
 		player.view.near = 0.25f;
 		player.view.far = 150f;
@@ -181,9 +240,10 @@ public class MyGdxGame extends ApplicationAdapter {
 		player.controller = new FirstPersonCameraController(player.view);
 		player.controller.setDegreesPerPixel(1/sensM);
 		player.controller.setVelocity(15);
-		player.view.update();
+		player.view.update(true);
 
 		modelBatch = new ModelBatch();
+		spriteBatch = new SpriteBatch();
 
 		// TODO: add more arenas (aesthetic)
 
@@ -199,23 +259,8 @@ public class MyGdxGame extends ApplicationAdapter {
 		delta = Gdx.graphics.getDeltaTime();
 		timer += delta;
 		player.fireTimer -= delta;
-		if( bullets.size < 10000 & Gdx.input.isKeyPressed(Keys.SHIFT_LEFT) & player.fireTimer < 1){
-			// TODO: fix bullet spaghetti
-			Bullet newbul = new Bullet();
-			bullets.add(newbul);
-			//set position
-			newbul.pos.set(player.view.position).mulAdd(player.view.direction,10);
-			//hor direction
-			Vector3 hor = (player.view.direction).cpy().crs(player.view.up).nor();
-			//wiggle
-			hor.set(hor.x*MathUtils.cos(timer),hor.y*MathUtils.cos(timer),hor.z*MathUtils.cos(timer));
-			//wiggle vert
-			Vector3 vert = new Vector3().mulAdd(player.view.up,MathUtils.sin(timer));
-			//apply wiggly vel dir
-			newbul.vel.set(player.view.direction).scl(player.aimSpeed).mulAdd(vert,player.spread).mulAdd(hor,player.spread).scl(delta).nor().scl(player.fireSpeed);
-			//sped = bullets.get(bullets.size-1).vel.set(player.view.direction).scl(sped).add(vert).add(hor).scl(delta).scl(player.ROF).len();
-			//set time until next bullet
-			player.fireTimer = player.ROF*delta;
+		if( bullets.size < 10000 & Gdx.input.isButtonPressed(Input.Buttons.LEFT) & player.fireTimer < 1){
+			spiral(player,-player.atkHor,0, player.atkFor);
 		}
 		if(player.fireTimer > player.ROF*delta){player.fireTimer = player.ROF*delta;}
 		if (Gdx.input.isKeyPressed(Input.Keys.ESCAPE)) {
@@ -224,10 +269,14 @@ public class MyGdxGame extends ApplicationAdapter {
 		player.view.update();
 		player.controller.update(delta);
 		for(int i = bullets.size-1; i >= 0; i--){
-			if(bullets.get(i).pos.dst(player.view.position) < player.view.far)
-			{ bullets.get(i).pos.mulAdd(bullets.get(i).vel,delta); } else
-				{bullets.removeIndex(i);} // TODO: bullet erasure
-
+			if(bullets.get(i).pos.dst(player.view.position) >= player.view.far)
+			{bullets.removeIndex(i);} else
+				{bullets.get(i).pos.mulAdd(bullets.get(i).vel,delta);
+					if((player.view.position.dst(bullets.get(i).pos) < player.hitSize+1) & (bullets.get(i).owner != player)){
+						player.health -= 1f; // TODO: bullet effects
+						bullets.removeIndex(i);
+					}
+				}
 		}
 		Gdx.app.log("#", "bullets:" + bullets.size);
 		Gdx.app.log("#", "ROF:" + player.ROF*delta);
@@ -250,8 +299,21 @@ public class MyGdxGame extends ApplicationAdapter {
 				bulletdraw.transform.setToTranslation(bullets.get(i).pos); //move instant
 				modelBatch.render(bulletdraw); //draw
 			}
-		} //repeat
+		} //repeat;
+		Vector3 transform = player.view.position.cpy().mulAdd(player.view.right,-player.atkHor);
+		hand.transform.setToTranslation(transform.mulAdd(player.view.direction,player.atkFor-0.5f));
+		hand.transform.rotateTowardTarget(transform.mulAdd(player.view.direction,player.atkFor),player.view.up);
+		modelBatch.render(hand);
+		transform = player.view.position.cpy().mulAdd(player.view.right,player.atkHor);
+		hand.transform.setToTranslation(transform.mulAdd(player.view.direction,player.atkFor-0.5f));
+		hand.transform.rotateTowardTarget(transform.mulAdd(player.view.direction,player.atkFor),player.view.up);
+		hand.transform.scale(-1,1,1);
+		modelBatch.render(hand);
 		modelBatch.end();
+		spriteBatch.begin();
+				font.draw(spriteBatch,"health:" + player.health,0,height-font.getScaleY());
+		spriteBatch.end();
+
 	}
 
 	@Override
